@@ -1,0 +1,223 @@
+---
+title: "R Final Project - Affairs Dataset"
+author: "Gloria Lago, Melissa Childs, Neil Shapiro"
+date: "August 17, 2017"
+output: html_document
+---
+For our final project for the R bridge course, we decided to analyze the Affairs Dataset. In this dataset, 601 men and women from the United States answered questions about how many (if any) affairs they have had in their marriage, the number of years they have been married, number of kids, etc. 
+
+
+**The total list of factors included in this dataset is below:**
+
+  - Gender Identification (male, female)
+
+  - Age
+
+  - Number of Years Married
+
+  - Children (yes, no)
+
+  - How Religious, from 1 (not religious) to 5 (very religious)
+
+  - Education
+
+  - Occupation, from 1 to 7, according to hollingshead classification 
+
+  - Self Rating of Marriage, from 1 (very unhappy) to 5 (very happy)
+
+  - Number of Affairs in the Past Year
+
+
+
+**We used this data to answer the following questions:**
+
+1. Did average number of years married have an affect on the number of affairs?
+
+2. Of all the people sampled in this dataset, was gender identification a factor that affected number of affairs?
+
+3. Of those who were surveyed, did the people who had children have on average a higher or lower number of affairs?
+
+4. What was the average age of the people who had identified as having had at least one affair?
+
+5. Of those who had affairs, was there a larger number of people who had children than didn't have children? 
+
+6. Was there a difference in age between people with children who had affairs vs people who didn't have children who had affairs?
+
+7. For each marriage satisfaction rating, what was the average number of affairs?
+
+**First, we'll define the following packages that we'll use to help with calculating our insights:**
+
+```{r, echo=TRUE}
+library(dplyr)
+```
+```{r, echo=TRUE}
+library(ggplot2)
+```
+```{r, echo=TRUE}
+library(readr)
+```
+
+
+Next, we're going to read the file into R using Gloria's github, create our dataset, and rename the columns:
+```{r}
+marriage_dataset <- read.csv(url("https://raw.githubusercontent.com/glago66/Final-Project/master/affairs.csv"))
+
+colnames(marriage_dataset) <- c("participant", "gender", "age", "years_married", "children", "religious", "education",
+                                "occupation", "marriage_rating", "number_of_affairs")
+
+head(marriage_dataset)
+```
+
+We then used as.integer() to define the values for years_married, number_of_affairs, age, and education as integers.
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+as.integer(marriage_dataset$years_married)
+as.integer(marriage_dataset$number_of_affairs)
+as.integer(marriage_dataset$age)
+as.integer(marriage_dataset$education)
+```
+For marriage rating, we're also going to assign a character value for each numerical value:
+
+```{r}
+switch_rating <- function(val){
+  switch (as.character(val),
+          '1' = 'very unhappy',
+          '2' = 'unhappy',
+          '3' = 'neutral',
+          '4' = 'happy',
+          '5' = 'very happy'
+          
+  )
+}
+marriage_dataset$marriage_rating <- sapply(marriage_dataset$marriage_rating, switch_rating)
+```
+
+
+
+We're going to make a graph to see a quick overview of the number of affairs across all participants:
+
+```{r}
+hist(marriage_dataset$number_of_affairs, freq=FALSE, main="Graph") 
+curve(dnorm(x, mean=mean(marriage_dataset$number_of_affairs), sd=sd(marriage_dataset$number_of_affairs)), add = TRUE, col='tomato3', lwd= '3') 
+```
+
+
+
+Then, we're going to start looking into our first question. First we're going to look at the summary of the dataset for the column "years married":
+```{r}
+summary(marriage_dataset$years_married)
+
+```
+
+We're going to subset the data into two separate data frames: one for the people surveyed who indicated having at least one affair, and a second for the people who indicated having no affairs. Then, we're going the calculate the average years married for each dataframe:
+```{r}
+summary(marriage_dataset$number_of_affairs)
+```
+```{r}
+noaffairs <- marriage_dataset[marriage_dataset$number_of_affairs %in% 0,]
+noaffairs %>% summarize(mean(years_married))
+```
+The average years married of people who did not have affairs was around 8 years.
+
+
+```{r}
+affairs <- marriage_dataset[marriage_dataset$number_of_affairs %in% 1:12,]
+affairs %>% summarize(mean(years_married))
+
+```
+The average years married of people who had at least one affair was around 9 years.
+
+Next, we're going to look into our next question. We're going to take a summary of the people in the original dataset by gender:
+```{r}
+summary(marriage_dataset$gender)
+```
+
+We're going to subset the original dataset by gender, and then calculate the average number of affairs for each gender:
+```{r}
+marriage_female <- marriage_dataset[marriage_dataset$gender %in% "female",] 
+mean(marriage_female$number_of_affairs)
+```
+
+```{r}
+marriage_male <- marriage_dataset[marriage_dataset$gender %in% "male",] 
+mean(marriage_male$number_of_affairs)
+
+```
+Since the means are almost exactly the same, for this dataset the number of affairs is not affected by gender.
+
+Next, we're going to create two different histogram plots to see if the number of affairs changes based on whether or not the people surveyed had children:
+
+```{r,message=FALSE}
+affairs_histogram <- ggplot(marriage_dataset) + geom_histogram(aes(x=number_of_affairs)) 
+affairs_histogram + facet_wrap(~ children)
+```
+
+Becasue of what was reflected in the graph, we wanted to look into this further by seeing how many people had children vs. did not:
+
+```{r}
+summary(marriage_dataset$children)
+```
+
+
+Given that so many more people surveyed had children than didn't, we wanted to normalize the data by taking the average number of affiars for people who did and didn't have children:
+
+```{r}
+marriage_children_df <- group_by(marriage_dataset, children)
+children_df <- marriage_children_df[, c(5,10)]
+summarize(children_df, number_affair = mean(number_of_affairs))
+```
+For the people surveyed, the average number of affairs was slightly higher for the poeple who had children.
+
+For Question 4, we first wanted to get an overview of the average age of all people surveyed:
+
+```{r}
+
+hist(marriage_dataset$age, freq=FALSE, main="Graph")
+
+curve(dnorm(x, mean=mean(marriage_dataset$age), sd=sd(marriage_dataset$age)), add = TRUE, col='tomato3', lwd=3) 
+
+```
+
+
+The average age of people in this dataset is between 30-35 years.
+
+Then, we're going to create a subset of that data to only include people who have had at least one affair. 
+```{r}
+age_df <- marriage_dataset[marriage_dataset$number_of_affairs %in% 1:12,]
+age_affairs <- ggplot(data=age_df, aes(x = age, y = number_of_affairs)) + geom_point()
+age_affairs
+```
+
+To answer Question 5, we're then going to break out the above graph by people surveyed who did and didn't have children:
+
+```{r}
+age_affairs + facet_wrap(~ children)
+```
+
+Based on this graph, it looks like people who did have affairs and also had children were generally older than those who did not have children.
+
+
+Finally, we're going to look at the average number of affairs based on marriage rating:
+
+```{r}
+marriage_rating_df <- group_by(marriage_dataset, marriage_rating)
+rating_df <- marriage_rating_df[, 9:10]
+summarize(rating_df, number_affair = mean(number_of_affairs))
+```
+It looks like people who said they were either "happy" or "neutral" about their marriage had about the same average number of affairs. People who said they were "unhappy" and "very unhappy" had the highest average number of affairs.
+
+We want to summarize this information further in a boxplot to see if there are any outliers:
+
+```{r}
+ggplot(marriage_dataset, aes(y=number_of_affairs, x=marriage_rating)) + geom_boxplot()
+```
+
+We can see here that there are a number of outliers among the people who indicated that they were "happy" or "very happy" with their marriage.
+
+
+
+References: 
+https://stackoverflow.com/questions/19483415/subset-a-dataframe-by-multiple-factor-levels
+https://www3.nd.edu/~steve/computing_with_data/24_dplyr/dplyr.html
+
+
+
